@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  bay:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./bay.db
+      - REDIS_URL=redis://redis:6379/0
+      - ACCESS_TOKEN=secret-token
+      - MAX_SHIP_NUM=10
+      - BEHAVIOR_AFTER_MAX_SHIP=wait
+      - DOCKER_IMAGE=ship:latest
+      - DOCKER_NETWORK=shipyard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - bay_data:/app/data
+    depends_on:
+      - redis
+    networks:
+      - bay-network
+      - shipyard
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bay-network
+
+volumes:
+  bay_data:
+  redis_data:
+
+networks:
+  bay-network:
+    driver: bridge
+  shipyard:
+    external: true

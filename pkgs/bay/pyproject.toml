@@ -1,0 +1,21 @@
+[project]
+name = "bay"
+version = "0.1.0"
+description = "Bay API service for Agent Sandbox"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlmodel",
+    "pydantic",
+    "pydantic-settings",
+    "aiohttp",
+    "celery",
+    "redis",
+    "docker",
+    "aiodocker",
+    "aiosqlite",
+    "alembic",
+    "greenlet>=3.2.4",
+]
