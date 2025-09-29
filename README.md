@@ -1,6 +1,6 @@
 # Shipyard
 
-✨ 一个轻量级 Agent Sandbox 运行环境，支持多 Session 的 Sandbox 复用。支持 IPython、Shell、File System 等功能。✨ 
+✨ 一个轻量级 Agent Sandbox 运行环境，支持多 Session 的 Sandbox 复用。支持 Python Interpreter、Shell、File System 等功能。✨ 
 
 ## Roadmap
 
@@ -13,7 +13,7 @@
 User <-> Bay <-> Ship
 
 - Bay 是一个中台，起到管理和调度 Ship 的作用。
-- Ship 是一个隔离的容器化执行环境，运行 IPython、Shell、File System 等功能。
+- Ship 是一个隔离的容器化执行环境，运行 Python Interpreter、Shell、File System 等功能。
 
 ## Environment
 
@@ -150,11 +150,11 @@ User <-> Bay <-> Ship
 }
 ```
 
-#### IPython
+#### Python Interpreter
 
-提供 IPython 代码执行功能。
+提供 Python Interpreter 代码执行功能。
 
-- `POST /ipython/exec` - 执行 IPython 代码
+- `POST /ipython/exec` - 执行 Python 代码
 
 ```
 {
