@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Optional, List
 from app.config import settings
-from app.models import Ship, CreateShipRequest, ExecRequest, ExecResponse
+from app.models import Ship, CreateShipRequest, ExecRequest, ExecResponse, SessionShip
 from app.database import db_service
 from app.services.docker_service import docker_service
 
@@ -13,8 +13,31 @@ logger = logging.getLogger(__name__)
 class ShipService:
     """Service for managing Ship lifecycle and operations"""
 
-    async def create_ship(self, request: CreateShipRequest) -> Ship:
-        """Create a new ship"""
+    async def create_ship(self, request: CreateShipRequest, session_id: str) -> Ship:
+        """Create a new ship or reuse an existing one for the session"""
+        # First, try to find an available ship that can accept this session
+        available_ship = await db_service.find_available_ship(session_id)
+
+        if available_ship:
+            # Check if this session already has access to this ship
+            existing_session = await db_service.get_session_ship(
+                session_id, available_ship.id
+            )
+
+            if existing_session:
+                # Update last activity and return existing ship
+                await db_service.update_session_activity(session_id, available_ship.id)
+                return available_ship
+            else:
+                # Add this session to the ship
+                session_ship = SessionShip(
+                    session_id=session_id, ship_id=available_ship.id
+                )
+                await db_service.create_session_ship(session_ship)
+                await db_service.increment_ship_session_count(available_ship.id)
+                return available_ship
+
+        # No available ship found, create a new one
         # Check ship limits
         if settings.behavior_after_max_ship == "reject":
             active_count = await db_service.count_active_ships()
@@ -25,7 +48,7 @@ class ShipService:
             await self._wait_for_available_slot()
 
         # Create ship record
-        ship = Ship(ttl=request.ttl)
+        ship = Ship(ttl=request.ttl, max_session_num=request.max_session_num)
         ship = await db_service.create_ship(ship)
 
         try:
@@ -37,7 +60,13 @@ class ShipService:
             # Update ship with container info
             ship.container_id = container_info["container_id"]
             ship.ip_address = container_info["ip_address"]
+            ship.current_session_num = 1 # First session
             ship = await db_service.update_ship(ship)
+
+            # Create session-ship relationship
+            session_ship = SessionShip(session_id=session_id, ship_id=ship.id)
+            await db_service.create_session_ship(session_ship)
+            await db_service.increment_ship_session_count(ship.id)
 
             # Schedule TTL cleanup
             asyncio.create_task(self._schedule_cleanup(ship.id, ship.ttl))
@@ -85,7 +114,7 @@ class ShipService:
         return ship
 
     async def execute_operation(
-        self, ship_id: str, request: ExecRequest
+        self, ship_id: str, request: ExecRequest, session_id: str
     ) -> ExecResponse:
         """Execute operation on ship"""
         ship = await db_service.get_ship(ship_id)
@@ -95,8 +124,18 @@ class ShipService:
         if not ship.ip_address:
             return ExecResponse(success=False, error="Ship IP address not available")
 
+        # Verify that this session has access to this ship
+        session_ship = await db_service.get_session_ship(session_id, ship_id)
+        if not session_ship:
+            return ExecResponse(
+                success=False, error="Session does not have access to this ship"
+            )
+
+        # Update last activity for this session
+        await db_service.update_session_activity(session_id, ship_id)
+
         # Forward request to ship container
-        return await self._forward_to_ship(ship.ip_address, request)
+        return await self._forward_to_ship(ship.ip_address, request, session_id)
 
     async def get_logs(self, ship_id: str) -> str:
         """Get ship container logs"""
@@ -146,15 +185,18 @@ class ShipService:
             logger.error(f"Failed to cleanup ship {ship_id}: {e}")
 
     async def _forward_to_ship(
-        self, ship_ip: str, request: ExecRequest
+        self, ship_ip: str, request: ExecRequest, session_id: str
     ) -> ExecResponse:
         """Forward request to ship container"""
-        url = f"http://{ship_ip}:8080/{request.type}"
+        url = f"http://{ship_ip}:8123/{request.type}"
 
         try:
             timeout = aiohttp.ClientTimeout(total=30)
+            headers = {"X-SESSION-ID": session_id}
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(url, json=request.payload or {}) as response:
+                async with session.post(
+                    url, json=request.payload or {}, headers=headers
+                ) as response:
                     if response.status == 200:
                         data = await response.json()
                         return ExecResponse(success=True, data=data)

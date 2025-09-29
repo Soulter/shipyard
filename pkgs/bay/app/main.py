@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -35,12 +35,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start service: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Bay API service...")
-    
+
     # Close Docker client
     try:
         await docker_service.close()

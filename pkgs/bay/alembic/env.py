@@ -5,7 +5,6 @@ from alembic import context
 from sqlmodel import SQLModel
 
 # Import all models to ensure they are registered with SQLModel metadata
-from app.models import Ship
 from app.config import settings
 
 # this is the Alembic Config object, which provides

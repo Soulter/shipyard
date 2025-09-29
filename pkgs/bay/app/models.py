@@ -20,10 +20,34 @@ class ShipBase(SQLModel):
     container_id: Optional[str] = Field(default=None)
     ip_address: Optional[str] = Field(default=None)
     ttl: int = Field(description="Time to live in seconds")
+    max_session_num: int = Field(
+        default=1, description="Maximum number of sessions that can use this ship"
+    )
+    current_session_num: int = Field(
+        default=0, description="Current number of active sessions"
+    )
 
 
 class Ship(ShipBase, table=True):
-    __tablename__ = "ships"
+    __tablename__ = "ships"  # type: ignore
+
+
+class SessionShipBase(SQLModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    session_id: str = Field(description="Session ID")
+    ship_id: str = Field(foreign_key="ships.id", description="Ship ID")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    last_activity: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
+
+class SessionShip(SessionShipBase, table=True):
+    __tablename__ = "session_ships"  # type: ignore
 
 
 # API Request/Response Models
@@ -41,6 +65,9 @@ class CreateShipRequest(BaseModel):
 
     ttl: int = Field(..., gt=0, description="Time to live in seconds")
     spec: Optional[ShipSpec] = Field(None, description="Ship specifications")
+    max_session_num: int = Field(
+        default=1, gt=0, description="Maximum number of sessions that can use this ship"
+    )
 
 
 class ShipResponse(BaseModel):
@@ -53,20 +80,16 @@ class ShipResponse(BaseModel):
     container_id: Optional[str]
     ip_address: Optional[str]
     ttl: int
+    max_session_num: int
+    current_session_num: int
 
 
 class ExecRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal[
-        "fs/create_file",
-        "fs/read_file",
-        "fs/write_file",
-        "fs/delete_file",
-        "fs/list_dir",
-        "ipython/exec_code",
-        "shell/exec",
-    ] = Field(..., description="Operation endpoint")
+    type: str = Field(
+        ..., description="Operation type, e.g., 'shell/exec', 'ipython/exec'"
+    )
     payload: Optional[Dict[str, Any]] = Field(None, description="Operation payload")
 
 

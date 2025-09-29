@@ -25,9 +25,6 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./bay.db", description="Database connection URL"
     )
 
-    # Redis settings
-    redis_url: str = Field(default="redis://localhost:6379/0", description="Redis URL")
-
     # Docker settings
     docker_image: str = Field(default="ship:latest", description="Ship container image")
     docker_network: str = Field(default="shipyard", description="Docker network name")

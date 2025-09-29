@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSessio
 from sqlalchemy.pool import StaticPool
 from typing import Optional, List
 from app.config import settings
-from app.models import Ship
+from app.models import Ship, SessionShip
 from datetime import datetime, timezone
 
 
@@ -27,7 +27,7 @@ class DatabaseService:
         if not self.engine:
             await self.initialize()
 
-        async with self.engine.begin() as conn:
+        async with self.engine.begin() as conn:  # type: ignore
             await conn.run_sync(SQLModel.metadata.create_all)
 
     def get_session(self) -> AsyncSession:
@@ -53,8 +53,8 @@ class DatabaseService:
         session = self.get_session()
         try:
             statement = select(Ship).where(Ship.id == ship_id)
-            result = await session.exec(statement)
-            return result.first()
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
         finally:
             await session.close()
 
@@ -75,8 +75,8 @@ class DatabaseService:
         session = self.get_session()
         try:
             statement = select(Ship).where(Ship.id == ship_id)
-            result = await session.exec(statement)
-            ship = result.first()
+            result = await session.execute(statement)
+            ship = result.scalar_one_or_none()
 
             if ship:
                 await session.delete(ship)
@@ -91,8 +91,8 @@ class DatabaseService:
         session = self.get_session()
         try:
             statement = select(Ship).where(Ship.status == 1)
-            result = await session.exec(statement)
-            return result.all()
+            result = await session.execute(statement)
+            return list(result.scalars().all())
         finally:
             await session.close()
 
@@ -101,6 +101,123 @@ class DatabaseService:
         ships = await self.list_active_ships()
         return len(ships)
 
+    # SessionShip operations
+    async def create_session_ship(self, session_ship: SessionShip) -> SessionShip:
+        """Create a new session-ship relationship"""
+        session = self.get_session()
+        try:
+            session.add(session_ship)
+            await session.commit()
+            await session.refresh(session_ship)
+            return session_ship
+        finally:
+            await session.close()
 
-# Global database service instance
+    async def get_session_ship(
+        self, session_id: str, ship_id: str
+    ) -> Optional[SessionShip]:
+        """Get session-ship relationship"""
+        session = self.get_session()
+        try:
+            statement = select(SessionShip).where(
+                SessionShip.session_id == session_id, SessionShip.ship_id == ship_id
+            )
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
+        finally:
+            await session.close()
+
+    async def get_sessions_for_ship(self, ship_id: str) -> List[SessionShip]:
+        """Get all sessions for a ship"""
+        session = self.get_session()
+        try:
+            statement = select(SessionShip).where(SessionShip.ship_id == ship_id)
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+        finally:
+            await session.close()
+
+    async def update_session_activity(
+        self, session_id: str, ship_id: str
+    ) -> Optional[SessionShip]:
+        """Update last activity for a session"""
+        session = self.get_session()
+        try:
+            statement = select(SessionShip).where(
+                SessionShip.session_id == session_id, SessionShip.ship_id == ship_id
+            )
+            result = await session.execute(statement)
+            session_ship = result.scalar_one_or_none()
+
+            if session_ship:
+                session_ship.last_activity = datetime.now(timezone.utc)
+                session.add(session_ship)
+                await session.commit()
+                await session.refresh(session_ship)
+
+            return session_ship
+        finally:
+            await session.close()
+
+    async def find_available_ship(self, session_id: str) -> Optional[Ship]:
+        """Find an available ship that can accept a new session"""
+        session = self.get_session()
+        try:
+            # Find ships that have available session slots
+            statement = select(Ship).where(
+                Ship.status == 1, Ship.current_session_num < Ship.max_session_num
+            )
+            result = await session.execute(statement)
+            ships = list(result.scalars().all())
+
+            # Check if this session already has access to any ship
+            for ship in ships:
+                existing_session = await self.get_session_ship(session_id, ship.id)
+                if existing_session:
+                    return ship
+
+            # Return the first available ship
+            return ships[0] if ships else None
+        finally:
+            await session.close()
+
+    async def increment_ship_session_count(self, ship_id: str) -> Optional[Ship]:
+        """Increment the current session count for a ship"""
+        session = self.get_session()
+        try:
+            statement = select(Ship).where(Ship.id == ship_id)
+            result = await session.execute(statement)
+            ship = result.scalar_one_or_none()
+
+            if ship:
+                ship.current_session_num += 1
+                ship.updated_at = datetime.now(timezone.utc)
+                session.add(ship)
+                await session.commit()
+                await session.refresh(ship)
+
+            return ship
+        finally:
+            await session.close()
+
+    async def decrement_ship_session_count(self, ship_id: str) -> Optional[Ship]:
+        """Decrement the current session count for a ship"""
+        session = self.get_session()
+        try:
+            statement = select(Ship).where(Ship.id == ship_id)
+            result = await session.execute(statement)
+            ship = result.scalar_one_or_none()
+
+            if ship and ship.current_session_num > 0:
+                ship.current_session_num -= 1
+                ship.updated_at = datetime.now(timezone.utc)
+                session.add(ship)
+                await session.commit()
+                await session.refresh(ship)
+
+            return ship
+        finally:
+            await session.close()
+
+
 db_service = DatabaseService()

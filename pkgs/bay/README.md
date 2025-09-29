@@ -39,13 +39,25 @@ python run.py
 
 ### 使用Docker Compose
 
-1. 创建Docker网络（用于Ship容器）：
+**重要**: Bay现在使用宿主机的Docker socket，而不是Docker-in-Docker模式，这提供了更好的性能和稳定性。
+
+1. 确保宿主机上已经安装了Docker并且Docker daemon正在运行。
+
+2. 构建Ship镜像（在宿主机上）：
+
+```bash
+cd ../ship
+docker build -t ship:latest .
+cd ../bay
+```
+
+3. 创建Docker网络（用于Ship容器）：
 
 ```bash
 docker network create shipyard
 ```
 
-2. 启动所有服务：
+4. 启动所有服务：
 
 ```bash
 docker-compose up -d
@@ -83,7 +95,6 @@ Authorization: Bearer <your-access-token>
 
 - `ACCESS_TOKEN`: API访问令牌
 - `DATABASE_URL`: SQLite数据库文件路径
-- `REDIS_URL`: Redis连接URL
 - `MAX_SHIP_NUM`: 最大Ship数量
 - `BEHAVIOR_AFTER_MAX_SHIP`: 达到最大Ship数量后的行为（reject/wait）
 - `DOCKER_IMAGE`: Ship容器镜像名称

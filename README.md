@@ -1,15 +1,13 @@
 # Shipyard
 
-一个基于 DinD 技术的 Agent Sandbox 运行环境。
+一个 Agent Sandbox，支持多 Session 的 Sandbox 复用。支持 IPythonShell、File System 等功能。
 
 ## 架构
 
 User <-> Bay <-> Ship
 
 - Bay 是一个中台，起到管理和调度 Ship 的作用。
-- Ship 是一个隔离的容器化执行环境，运行 IPython、Chromium、Shell、File System 等功能。
-
-使用 `Celery` 执行异步任务调度，`Redis` 作为消息中间件。
+- Ship 是一个隔离的容器化执行环境，运行 IPython、Shell、File System 等功能。
 
 ## Environment
 
@@ -37,6 +35,7 @@ User <-> Bay <-> Ship
 上述所有接口都需要请求头：
 
 - `Authorization`: Bearer token
+- `X-SESSION-ID`: Session ID - 为了了追踪请求来源，实现 Ship 复用
 
 #### Ship Entity
 
@@ -58,6 +57,7 @@ User <-> Bay <-> Ship
 - `spec` (dict, 可选) - 规格，包含以下可选字段：
   - `cpus` (float, 可选) - 分配的 CPU 数量。
   - `memory` (str, 可选) - 分配的内存大小，例如 "512m"。
+- `max_session_num` (int, 可选) - 最大 Session 数量，默认 1。这个值决定了 Ship 可以被多少不同的 Session ID 复用。请注意，Ship 虽然最大程度保证了 Session 之间的隔离，但不能完全杜绝隔离。
 
 返回 Ship 实体。
 
@@ -79,13 +79,105 @@ User <-> Bay <-> Ship
 - `fs/list_dir` - 列出目录内容
 - `ipython/exec_code` - 执行 IPython 代码
 - `shell/exec` - 执行 Shell 命令
+- `shell/processes` - 获取当前运行的进程列表
+- `shell/cwd` - 获取当前工作目录
 
-中台会根据 `oper_endpoint` 将请求体转发到对应的 Ship 容器内的 API。
+中台会根据 `oper_endpoint` 将请求体转发到对应的 Ship 容器内的 API，并带上请求头 `X-SESSION-ID`。
 
 需要请求头：
 
 - `X-Ship-ID` - Ship 的 ID
+- `X-SESSION-ID` - Session ID - 为了了追踪请求来源，实现 Ship 复用。
 
 ### Ship
 
 包含一个基于 FastAPI 的 API 服务，运行在 DinD 容器中。
+
+#### FS
+
+提供文件系统操作。
+
+- `POST /fs/create_file` - 创建文件
+
+```
+{
+  "path": "string",
+  "content": "",
+  "mode": 420
+}
+```
+
+- `POST /fs/read_file` - 读取文件
+
+```
+{
+  "path": "string",
+  "encoding": "utf-8"
+}
+```
+
+- `POST /fs/write_file` - 写入文件
+
+```
+{
+  "path": "string",
+  "content": "string",
+  "mode": "w",
+  "encoding": "utf-8"
+}
+```
+
+- `POST /fs/delete_file` - 删除文件
+
+```
+{
+  "path": "string"
+}
+```
+
+- `POST /fs/list_dir` - 列出目录内容
+
+```
+{
+  "path": ".",
+  "show_hidden": false
+}
+```
+
+#### IPython
+
+提供 IPython 代码执行功能。
+
+- `POST /ipython/exec` - 执行 IPython 代码
+
+```
+{
+  "code": "string",
+  "timeout": 30,
+  "silent": false
+}
+```
+
+#### Shell
+
+提供 Shell 命令执行功能。
+
+- `POST /shell/exec` - 执行 Shell 命令
+
+```
+{
+  "command": "string",
+  "cwd": "string",
+  "env": {
+    "additionalProp1": "string",
+    "additionalProp2": "string",
+    "additionalProp3": "string"
+  },
+  "timeout": 30,
+  "shell": true,
+  "background": false
+}
+```
+
+- `GET /shell/processes` - 获取当前运行的进程列表
+- `GET /shell/cwd` - 获取当前工作目录

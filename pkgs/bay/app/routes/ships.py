@@ -14,14 +14,18 @@ router = APIRouter()
 
 
 @router.post("/ship", response_model=ShipResponse, status_code=status.HTTP_201_CREATED)
-async def create_ship(request: CreateShipRequest, token: str = Depends(verify_token)):
+async def create_ship(
+    request: CreateShipRequest,
+    token: str = Depends(verify_token),
+    x_session_id: str = Header(..., alias="X-SESSION-ID"),
+):
     """Create a new ship environment"""
     try:
-        ship = await ship_service.create_ship(request)
+        ship = await ship_service.create_ship(request, x_session_id)
         return ShipResponse.model_validate(ship)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
     except TimeoutError as e:
         raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail=str(e))
@@ -53,26 +57,15 @@ async def delete_ship(ship_id: str, token: str = Depends(verify_token)):
         )
 
 
-@router.post("/ship/{ship_id}/exec/{oper_endpoint:path}", response_model=ExecResponse)
+@router.post("/ship/{ship_id}/exec", response_model=ExecResponse)
 async def execute_operation(
     ship_id: str,
-    oper_endpoint: str,
     request: ExecRequest,
     token: str = Depends(verify_token),
-    x_ship_id: str = Header(..., alias="X-Ship-ID"),
+    x_session_id: str = Header(..., alias="X-SESSION-ID"),
 ):
     """Execute operation on ship"""
-    # Verify ship ID matches header
-    if ship_id != x_ship_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ship ID in URL must match X-Ship-ID header",
-        )
-
-    # Override operation type from URL path
-    request.type = oper_endpoint
-
-    response = await ship_service.execute_operation(ship_id, request)
+    response = await ship_service.execute_operation(ship_id, request, x_session_id)
     if not response.success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=response.error
