@@ -97,7 +97,7 @@ User <-> Bay <-> Ship
 
 ### Ship
 
-包含一个基于 FastAPI 的 API 服务，运行在 DinD 容器中。
+包含一个基于 FastAPI 的 API 服务，运行在容器中。
 
 #### FS
 
