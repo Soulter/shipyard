@@ -1,6 +1,6 @@
 # Shipyard
 
-✨ 一个轻量级 Agent Sandbox 运行环境，支持多 Session 的 Sandbox 复用。支持 IPythonShell、File System 等功能。✨ 
+✨ 一个轻量级 Agent Sandbox 运行环境，支持多 Session 的 Sandbox 复用。支持 IPython、Shell、File System 等功能。✨ 
 
 ## Roadmap
 
