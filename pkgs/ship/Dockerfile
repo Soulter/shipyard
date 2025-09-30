@@ -39,6 +39,9 @@ RUN apt-get update && apt-get install -y curl gnupg && \
 
 RUN npm install -g pnpm
 
+# Install Vercel CLI
+RUN npm install -g vercel
+
 # 复制项目文件
 COPY . .
 

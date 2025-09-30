@@ -2,9 +2,17 @@
 
 ✨ 一个轻量级 Agent Sandbox 运行环境，支持多 Session 的 Sandbox 复用。支持 Python Interpreter、Shell、File System 等功能。✨ 
 
+## 快速开始
+
+🚀 **[查看部署指南](./DEPLOYMENT.md)** - 使用 Docker 快速部署 Shipyard
+
+Docker 镜像已发布到 Docker Hub：
+- Bay: `soulter/shipyard-bay:latest`
+- Ship: `soulter/shipyard-ship:latest` 
+
 ## Roadmap
 
-- [ ] Publish to Dockerhub
+- [x] Publish to Dockerhub
 - [ ] Shipyard Python SDK
 - [ ] Support chromium operation
 
@@ -83,7 +91,7 @@ User <-> Bay <-> Ship
 - `fs/write_file` - 写入文件
 - `fs/delete_file` - 删除文件
 - `fs/list_dir` - 列出目录内容
-- `ipython/exec_code` - 执行 IPython 代码
+- `ipython/exec` - 执行 IPython 代码
 - `shell/exec` - 执行 Shell 命令
 - `shell/processes` - 获取当前运行的进程列表
 - `shell/cwd` - 获取当前工作目录
