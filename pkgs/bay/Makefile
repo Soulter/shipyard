@@ -3,4 +3,4 @@
 # Docker build
 docker-build:
 	@echo "🐳 Building Bay Docker image..."
-	docker build -t soulter/shipyard .
+	docker build -t soulter/shipyard-bay .

@@ -17,16 +17,16 @@ test-integration:
 clean:
 	@echo "Cleaning up Docker resources..."
 	-docker container prune -f
-	-docker image rm ship:test 2>/dev/null || true
+	-docker image rm soulter/shipyard-ship:test 2>/dev/null || true
 	-docker system prune -f
 
 # 构建Docker镜像
 build:
-	docker build -t ship:latest .
+	docker build -t soulter/shipyard-ship:latest .
 
 # 运行Ship容器
 run: build
-	docker run --rm -p 8123:8123 ship:latest
+	docker run --rm -p 8123:8123 soulter/shipyard-ship:latest
 
 # 开发模式运行（本地）
 dev:
