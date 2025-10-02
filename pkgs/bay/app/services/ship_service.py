@@ -60,8 +60,27 @@ class ShipService:
             # Update ship with container info
             ship.container_id = container_info["container_id"]
             ship.ip_address = container_info["ip_address"]
-            ship.current_session_num = 1 # First session
+            ship.current_session_num = 1  # First session
             ship = await db_service.update_ship(ship)
+
+            # Wait for ship to be ready
+            if not ship.ip_address:
+                logger.error(f"Ship {ship.id} has no IP address")
+                await db_service.delete_ship(ship.id)
+                raise RuntimeError("Ship has no IP address")
+
+            logger.info(f"Waiting for ship {ship.id} to become ready...")
+            is_ready = await self._wait_for_ship_ready(ship.ip_address)
+
+            if not is_ready:
+                # Ship failed to become ready, cleanup
+                logger.error(f"Ship {ship.id} failed health check, cleaning up")
+                if ship.container_id:
+                    await docker_service.stop_ship_container(ship.container_id)
+                await db_service.delete_ship(ship.id)
+                raise RuntimeError(
+                    f"Ship failed to become ready within {settings.ship_health_check_timeout} seconds"
+                )
 
             # Create session-ship relationship
             session_ship = SessionShip(session_id=session_id, ship_id=ship.id)
@@ -71,6 +90,7 @@ class ShipService:
             # Schedule TTL cleanup
             asyncio.create_task(self._schedule_cleanup(ship.id, ship.ttl))
 
+            logger.info(f"Ship {ship.id} created successfully and is ready")
             return ship
 
         except Exception as e:
@@ -215,6 +235,34 @@ class ShipService:
         except Exception as e:
             logger.error(f"Unexpected error forwarding to ship {ship_ip}: {e}")
             return ExecResponse(success=False, error=f"Internal error: {str(e)}")
+
+    async def _wait_for_ship_ready(self, ship_ip: str) -> bool:
+        """Wait for ship to be ready by polling /health endpoint"""
+        health_url = f"http://{ship_ip}:8123/health"
+        max_wait_time = settings.ship_health_check_timeout
+        check_interval = settings.ship_health_check_interval
+        waited = 0
+
+        logger.info(f"Starting health check for ship at {ship_ip}")
+
+        while waited < max_wait_time:
+            try:
+                timeout = aiohttp.ClientTimeout(total=5)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(health_url) as response:
+                        if response.status == 200:
+                            logger.info(f"Ship at {ship_ip} is ready after {waited}s")
+                            return True
+            except Exception as e:
+                logger.debug(f"Health check failed for {ship_ip}: {e}")
+
+            await asyncio.sleep(check_interval)
+            waited += check_interval
+
+        logger.error(
+            f"Ship at {ship_ip} failed to become ready within {max_wait_time}s"
+        )
+        return False
 
 
 # Global ship service instance

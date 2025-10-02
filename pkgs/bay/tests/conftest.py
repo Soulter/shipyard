@@ -61,7 +61,7 @@ def bay_server(docker_client, bay_image):
         volumes={
             "/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}
         },
-        network="shipyard"
+        network="shipyard",
     )
 
     # 获取映射的端口
@@ -113,26 +113,27 @@ def bay_server(docker_client, bay_image):
 
 class TestClient:
     """Test client wrapper for requests.Session"""
+
     def __init__(self, base_url: str):
         self.base_url = base_url
         self.session = requests.Session()
-    
+
     def get(self, url, **kwargs):
         full_url = f"{self.base_url}{url}" if not url.startswith("http") else url
         return self.session.get(full_url, **kwargs)
-    
+
     def post(self, url, **kwargs):
         full_url = f"{self.base_url}{url}" if not url.startswith("http") else url
         return self.session.post(full_url, **kwargs)
-    
+
     def put(self, url, **kwargs):
         full_url = f"{self.base_url}{url}" if not url.startswith("http") else url
         return self.session.put(full_url, **kwargs)
-    
+
     def delete(self, url, **kwargs):
         full_url = f"{self.base_url}{url}" if not url.startswith("http") else url
         return self.session.delete(full_url, **kwargs)
-    
+
     def close(self):
         self.session.close()
 

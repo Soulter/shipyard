@@ -195,7 +195,7 @@ async def execute_code_in_kernel(
             except asyncio.TimeoutError:
                 error = f"Code execution timed out after {timeout} seconds"
                 break
-        
+
         outputs["text"] = "".join(plains).strip()
 
         return {

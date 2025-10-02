@@ -98,6 +98,8 @@ Authorization: Bearer <your-access-token>
 - `MAX_SHIP_NUM`: 最大Ship数量
 - `BEHAVIOR_AFTER_MAX_SHIP`: 达到最大Ship数量后的行为（reject/wait）
 - `DOCKER_IMAGE`: Ship容器镜像名称
+- `SHIP_HEALTH_CHECK_TIMEOUT`: Ship健康检查最大超时时间（秒，默认60）
+- `SHIP_HEALTH_CHECK_INTERVAL`: Ship健康检查间隔时间（秒，默认2）
 - `DOCKER_NETWORK`: Docker网络名称
 
 ## 开发

@@ -28,7 +28,7 @@ User <-> Bay <-> Ship
 - MAX_SHIP_NUM: 最大允许的 Ship 数量，默认 10
 - BEHAVIOR_AFTER_MAX_SHIP: 达到最大 Ship 数量后的行为，默认 "reject"。可选值：
   - "reject": 拒绝新的 Ship 创建请求
-  - "wait": 等待直到有 Ship 被释放（默认）
+  - "wait": 等待直到有 Ship 被释放
 - ACCESS_TOKEN: 访问令牌，用于操作 Ship，默认为 `secret-token`
 
 ## Packages

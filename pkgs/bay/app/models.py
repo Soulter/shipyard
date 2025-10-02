@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field, Column, DateTime
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 import uuid
 

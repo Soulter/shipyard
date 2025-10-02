@@ -40,6 +40,14 @@ class Settings(BaseSettings):
         default="512m", description="Default ship memory allocation"
     )
 
+    # Ship health check settings
+    ship_health_check_timeout: int = Field(
+        default=60, description="Maximum timeout for ship health check in seconds"
+    )
+    ship_health_check_interval: int = Field(
+        default=2, description="Health check interval in seconds"
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
