@@ -1,0 +1,9 @@
+[project]
+name = "shipyard-python-sdk"
+version = "0.1.0"
+description = "Shipyard Python SDK is an agent sandbox sdk"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.12.15",
+]
