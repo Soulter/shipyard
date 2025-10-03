@@ -218,9 +218,7 @@ class TestShipyard:
         import os
 
         # Create test file content
-        test_content = (
-            b"Hello, this is a test file for upload!\nLine 2\nLine 3\nBinary data: \x00\x01\x02\x03"
-        )
+        test_content = b"Hello, this is a test file for upload!\nLine 2\nLine 3\nBinary data: \x00\x01\x02\x03"
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(test_content)
@@ -231,14 +229,17 @@ class TestShipyard:
             upload_headers = {
                 "Authorization": headers["Authorization"],
                 "X-SESSION-ID": headers["X-SESSION-ID"],
-                "X-FILE-PATH": "uploads/test_file.txt",
             }
 
             with open(temp_file_path, "rb") as f:
-                files = {"file": (f.name, f, "application/octet-stream")}
+                files = {
+                    "file": (f.name, f, "application/octet-stream"),
+                }
+                data = {"file_path": "uploads/test_file.txt"}
                 response = client.post(
                     f"/ship/{ship_id}/upload",
                     files=files,
+                    data=data,
                     headers=upload_headers,
                 )
 
@@ -274,13 +275,14 @@ class TestShipyard:
                 binary_file_path = binary_file.name
 
             try:
-                upload_headers["X-FILE-PATH"] = "uploads/binary_test.bin"
+                data = {"file_path": "uploads/binary_test.bin"}
 
                 with open(binary_file_path, "rb") as f:
                     files = {"file": (f.name, f, "application/octet-stream")}
                     response = client.post(
                         f"/ship/{ship_id}/upload",
                         files=files,
+                        data=data,
                         headers=upload_headers,
                     )
 
@@ -294,13 +296,13 @@ class TestShipyard:
                 os.unlink(binary_file_path)
 
             # Test 4: Test upload path security (should fail)
-            upload_headers["X-FILE-PATH"] = "../../../etc/passwd"
-
+            data = {"file_path": "../../../etc/passwd"}
             with open(temp_file_path, "rb") as f:
                 files = {"file": (f.name, f, "application/octet-stream")}
                 response = client.post(
                     f"/ship/{ship_id}/upload",
                     files=files,
+                    data=data,
                     headers=upload_headers,
                 )
 
@@ -309,7 +311,10 @@ class TestShipyard:
             assert response.status_code != 200
 
             result = response.json()
-            assert "access" in result["detail"].lower() or "path" in result["detail"].lower()
+            assert (
+                "access" in result["detail"].lower()
+                or "path" in result["detail"].lower()
+            )
 
         finally:
             os.unlink(temp_file_path)
@@ -488,7 +493,9 @@ class TestShipyard:
             }
 
             response = client.post(
-                "/ship/wrong-ship-id/exec", json=invalid_op_data, headers=headers_wrong_id
+                "/ship/wrong-ship-id/exec",
+                json=invalid_op_data,
+                headers=headers_wrong_id,
             )
             print(response.json())
             assert response.status_code != 200

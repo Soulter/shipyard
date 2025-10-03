@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, Form
 from app.models import (
     CreateShipRequest,
     ShipResponse,
@@ -101,7 +101,7 @@ async def extend_ship_ttl(
 async def upload_file(
     ship_id: str,
     file: UploadFile,
-    file_path: str,
+    file_path: str = Form(...),
     token: str = Depends(verify_token),
     x_session_id: str = Header(..., alias="X-SESSION-ID"),
 ):
