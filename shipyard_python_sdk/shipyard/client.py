@@ -188,7 +188,7 @@ class ShipyardClient:
                 )
 
     async def upload_file(
-        self, ship_id: str, file_path: str, file_content: bytes, session_id: str
+        self, ship_id: str, file_content: bytes, session_id: str, remote_file_path: str
     ) -> Dict[str, Any]:
         """Upload file to ship container"""
         session = await self._get_session()
@@ -198,11 +198,10 @@ class ShipyardClient:
         form_data.add_field(
             "file", file_content, filename="upload", content_type="application/octet-stream"
         )
-        form_data.add_field("file_path", file_path)
 
         headers = {
             "X-SESSION-ID": session_id,
-            "X-FILE-PATH": file_path,
+            "X-FILE-PATH": remote_file_path,
         }
 
         async with session.post(
