@@ -2,6 +2,8 @@
 Shipyard Python SDK - Session ship implementation
 """
 
+import uuid
+import filetype
 from typing import Dict, Any, TYPE_CHECKING
 from .types import ShipInfo
 from .filesystem import FileSystemComponent
@@ -34,3 +36,26 @@ class SessionShip(ShipInfo):
     async def get_logs(self) -> str:
         """Get ship container logs"""
         return await self._client.get_ship_logs(self.id)
+
+    async def upload_file(
+        self, file_content: bytes, remote_file_path: str | None = None
+    ) -> Dict[str, Any]:
+        """Upload file to this ship session
+
+        Args:
+            file_content: File content as bytes
+            file_path: Path where the file should be saved in the ship workspace, if None, a unique path will be generated
+
+        Returns:
+            Dictionary with upload result information
+        """
+        uuid_str = str(uuid.uuid4())
+
+        if not remote_file_path:
+            kind = filetype.guess(file_content)
+            ext = f".{kind.extension}" if kind else ""
+            remote_file_path = f"{uuid_str}_uploaded_file{ext}"
+
+        return await self._client.upload_file(
+            self.id, remote_file_path, file_content, self._session_id
+        )

@@ -3,7 +3,14 @@ import asyncio
 import logging
 from typing import Optional, List
 from app.config import settings
-from app.models import Ship, CreateShipRequest, ExecRequest, ExecResponse, SessionShip
+from app.models import (
+    Ship,
+    CreateShipRequest,
+    ExecRequest,
+    ExecResponse,
+    SessionShip,
+    UploadFileResponse,
+)
 from app.database import db_service
 from app.services.docker_service import docker_service
 
@@ -169,6 +176,50 @@ class ShipService:
         """List all active ships"""
         return await db_service.list_active_ships()
 
+    async def upload_file(
+        self, ship_id: str, file_content: bytes, file_path: str, session_id: str
+    ) -> UploadFileResponse:
+        """Upload file to ship container"""
+        # Check file size limit
+        if len(file_content) > settings.max_upload_size:
+            return UploadFileResponse(
+                success=False,
+                error=f"File size ({len(file_content)} bytes) exceeds maximum allowed size ({settings.max_upload_size} bytes)",
+                message="File upload failed due to size limit",
+            )
+
+        ship = await db_service.get_ship(ship_id)
+        if not ship or ship.status == 0:
+            return UploadFileResponse(
+                success=False,
+                error="Ship not found or not running",
+                message="File upload failed",
+            )
+
+        if not ship.ip_address:
+            return UploadFileResponse(
+                success=False,
+                error="Ship IP address not available",
+                message="File upload failed",
+            )
+
+        # Verify that this session has access to this ship
+        session_ship = await db_service.get_session_ship(session_id, ship_id)
+        if not session_ship:
+            return UploadFileResponse(
+                success=False,
+                error="Session does not have access to this ship",
+                message="File upload failed",
+            )
+
+        # Update last activity for this session
+        await db_service.update_session_activity(session_id, ship_id)
+
+        # Forward file upload to ship container
+        return await self._upload_file_to_ship(
+            ship.ip_address, file_content, file_path, session_id
+        )
+
     async def _wait_for_available_slot(self):
         """Wait for an available ship slot"""
         max_wait_time = 300  # 5 minutes
@@ -263,6 +314,61 @@ class ShipService:
             f"Ship at {ship_ip} failed to become ready within {max_wait_time}s"
         )
         return False
+
+    async def _upload_file_to_ship(
+        self, ship_ip: str, file_content: bytes, file_path: str, session_id: str
+    ) -> UploadFileResponse:
+        """Upload file to ship container via HTTP API using multipart/form-data"""
+        url = f"http://{ship_ip}:8123/upload"
+
+        try:
+            # Create multipart form data
+            data = aiohttp.FormData()
+            data.add_field(
+                "file",
+                file_content,
+                filename="upload",
+                content_type="application/octet-stream",
+            )
+            data.add_field("file_path", file_path)
+
+            timeout = aiohttp.ClientTimeout(total=120)  # 2 minutes for file upload
+            headers = {"X-SESSION-ID": session_id}
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data, headers=headers) as response:
+                    if response.status == 200:
+                        return UploadFileResponse(
+                            success=True,
+                            message="File uploaded successfully",
+                            file_path=file_path,
+                        )
+                    else:
+                        error_text = await response.text()
+                        return UploadFileResponse(
+                            success=False,
+                            error=f"Ship returned {response.status}: {error_text}",
+                            message="File upload failed",
+                        )
+
+        except aiohttp.ClientError as e:
+            logger.error(f"Failed to upload file to ship {ship_ip}: {e}")
+            return UploadFileResponse(
+                success=False,
+                error=f"Connection error: {str(e)}",
+                message="File upload failed",
+            )
+        except asyncio.TimeoutError:
+            return UploadFileResponse(
+                success=False, error="File upload timeout", message="File upload failed"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error uploading file to ship {ship_ip}: {e}")
+            return UploadFileResponse(
+                success=False,
+                error=f"Internal error: {str(e)}",
+                message="File upload failed",
+            )
 
 
 # Global ship service instance

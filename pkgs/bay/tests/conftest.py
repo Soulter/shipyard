@@ -49,7 +49,7 @@ def bay_server(docker_client, bay_image):
         "DATABASE_URL": "sqlite+aiosqlite:///./data/bay_test.db",
         "ACCESS_TOKEN": "secret-token",
         "DEBUG": "false",
-        "DOCKER_IMAGE": "ship:latest",
+        "DOCKER_IMAGE": "soulter/shipyard-ship:latest",
     }
 
     container = docker_client.containers.run(

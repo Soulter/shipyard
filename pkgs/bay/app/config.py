@@ -48,6 +48,12 @@ class Settings(BaseSettings):
         default=2, description="Health check interval in seconds"
     )
 
+    # File upload settings
+    max_upload_size: int = Field(
+        default=100 * 1024 * 1024,
+        description="Maximum file upload size in bytes (default: 100MB)",
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

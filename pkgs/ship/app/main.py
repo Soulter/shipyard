@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from .components.filesystem import router as fs_router
 from .components.ipython import router as ipython_router
 from .components.shell import router as shell_router
+from .components.upload import router as upload_router
 
 app = FastAPI(
     title="Ship API",
@@ -13,6 +14,7 @@ app = FastAPI(
 app.include_router(fs_router, prefix="/fs", tags=["filesystem"])
 app.include_router(ipython_router, prefix="/ipython", tags=["ipython"])
 app.include_router(shell_router, prefix="/shell", tags=["shell"])
+app.include_router(upload_router, tags=["upload"])
 
 
 @app.get("/")

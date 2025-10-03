@@ -4,17 +4,9 @@
 
 ## 快速开始
 
-🚀 **[查看部署指南](./DEPLOYMENT.md)** - 使用 Docker 快速部署 Shipyard
-
 Docker 镜像已发布到 Docker Hub：
 - Bay: `soulter/shipyard-bay:latest`
 - Ship: `soulter/shipyard-ship:latest` 
-
-## Roadmap
-
-- [x] Publish to Dockerhub
-- [ ] Shipyard Python SDK
-- [ ] Support chromium operation
 
 ## 架构
 
@@ -45,6 +37,7 @@ User <-> Bay <-> Ship
 - `POST /ship/{ship_id}/exec/{oper_endpoint}` - 在指定的 Ship 环境中执行操作。
 - `GET /ship/logs/{ship_id}` - 获取指定 Ship 环境的日志。
 - `POST /ship/{ship_id}/extend-ttl` - 延长指定 Ship 环境的生命周期。
+- `POST /ship/{ship_id}/upload` - 上传文件到指定 Ship 环境的工作目录。
 
 上述所有接口都需要请求头：
 
@@ -102,6 +95,19 @@ User <-> Bay <-> Ship
 
 - `X-Ship-ID` - Ship 的 ID
 - `X-SESSION-ID` - Session ID - 为了了追踪请求来源，实现 Ship 复用。
+
+#### POST /ship/{ship_id}/upload
+
+上传文件到指定 Ship 环境的指定 Session 的工作目录。
+
+```bash
+curl -X POST "http://localhost:8123/upload" \
+  -H "X-SESSION-ID: my-session" \
+  -F "file=@local_file.txt" \
+  -F "file_path=documents/uploaded_file.txt" # or absolute path like /workspace/my-session/documents/uploaded_file.txt
+```
+
+当路径是绝对路径时，必须以 `/workspace/{session_id}/` 开头，否则会被拒绝。
 
 ### Ship
 

@@ -186,3 +186,32 @@ class ShipyardClient:
                 raise Exception(
                     f"Failed to execute operation: {response.status} {error_text}"
                 )
+
+    async def upload_file(
+        self, ship_id: str, file_path: str, file_content: bytes, session_id: str
+    ) -> Dict[str, Any]:
+        """Upload file to ship container"""
+        session = await self._get_session()
+
+        # Create multipart form data
+        form_data = aiohttp.FormData()
+        form_data.add_field(
+            "file", file_content, filename="upload", content_type="application/octet-stream"
+        )
+        form_data.add_field("file_path", file_path)
+
+        headers = {
+            "X-SESSION-ID": session_id,
+            "X-FILE-PATH": file_path,
+        }
+
+        async with session.post(
+            f"{self.endpoint_url}/ship/{ship_id}/upload", data=form_data, headers=headers
+        ) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                error_text = await response.text()
+                raise Exception(
+                    f"Failed to upload file: {response.status} {error_text}"
+                )

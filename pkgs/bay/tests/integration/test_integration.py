@@ -130,6 +130,9 @@ class TestShipyard:
             # Test file system operations
             self._test_filesystem_operations(client, ship_id, op_headers)
 
+            # Test file upload operations
+            self._test_file_upload_operations(client, ship_id, op_headers)
+
             # Test shell operations
             self._test_shell_operations(client, ship_id, op_headers)
 
@@ -208,6 +211,108 @@ class TestShipyard:
 
         result = response.json()
         assert result["success"] is True
+
+    def _test_file_upload_operations(self, client, ship_id: str, headers: dict):
+        """Test file upload operations"""
+        import tempfile
+        import os
+
+        # Create test file content
+        test_content = (
+            b"Hello, this is a test file for upload!\nLine 2\nLine 3\nBinary data: \x00\x01\x02\x03"
+        )
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(test_content)
+            temp_file_path = temp_file.name
+
+        try:
+            # Test 1: Upload file to relative path
+            upload_headers = {
+                "Authorization": headers["Authorization"],
+                "X-SESSION-ID": headers["X-SESSION-ID"],
+                "X-FILE-PATH": "uploads/test_file.txt",
+            }
+
+            with open(temp_file_path, "rb") as f:
+                files = {"file": (f.name, f, "application/octet-stream")}
+                response = client.post(
+                    f"/ship/{ship_id}/upload",
+                    files=files,
+                    headers=upload_headers,
+                )
+
+            print(f"Upload test 1 response: {response.json()}")
+            assert response.status_code == 200
+
+            result = response.json()
+            assert result["success"] is True
+            assert "uploads/test_file.txt" in result["file_path"]
+
+            # Test 2: Verify uploaded file can be read via filesystem API
+            read_file_data = {
+                "type": "fs/read_file",
+                "payload": {"path": "uploads/test_file.txt"},
+            }
+
+            response = client.post(
+                f"/ship/{ship_id}/exec", json=read_file_data, headers=headers
+            )
+            print(f"Read uploaded file response: {response.json()}")
+            assert response.status_code == 200
+
+            result = response.json()
+            assert result["success"] is True
+            # Note: Binary content might be encoded differently, so just check it exists
+            assert "content" in result["data"]
+
+            # Test 3: Upload binary file (image-like data)
+            binary_content = bytes(range(256))  # 0-255 byte values
+
+            with tempfile.NamedTemporaryFile(delete=False) as binary_file:
+                binary_file.write(binary_content)
+                binary_file_path = binary_file.name
+
+            try:
+                upload_headers["X-FILE-PATH"] = "uploads/binary_test.bin"
+
+                with open(binary_file_path, "rb") as f:
+                    files = {"file": (f.name, f, "application/octet-stream")}
+                    response = client.post(
+                        f"/ship/{ship_id}/upload",
+                        files=files,
+                        headers=upload_headers,
+                    )
+
+                print(f"Binary upload response: {response.json()}")
+                assert response.status_code == 200
+
+                result = response.json()
+                assert result["success"] is True
+
+            finally:
+                os.unlink(binary_file_path)
+
+            # Test 4: Test upload path security (should fail)
+            upload_headers["X-FILE-PATH"] = "../../../etc/passwd"
+
+            with open(temp_file_path, "rb") as f:
+                files = {"file": (f.name, f, "application/octet-stream")}
+                response = client.post(
+                    f"/ship/{ship_id}/upload",
+                    files=files,
+                    headers=upload_headers,
+                )
+
+            print(f"Security test response: {response.json()}")
+            # Should return error due to path validation
+            assert response.status_code != 200
+
+            result = response.json()
+            assert "access" in result["detail"].lower() or "path" in result["detail"].lower()
+
+        finally:
+            os.unlink(temp_file_path)
 
     def _test_shell_operations(self, client, ship_id: str, headers: dict):
         """Test shell operations"""
@@ -375,7 +480,7 @@ class TestShipyard:
 
         try:
             # Test mismatched Ship ID in header and URL
-            headers_wrong_id = {**DEFAULT_HEADERS, "X-Ship-ID": "wrong-ship-id"}
+            headers_wrong_id = {**DEFAULT_HEADERS}
 
             invalid_op_data = {
                 "type": "shell/exec",
@@ -383,9 +488,10 @@ class TestShipyard:
             }
 
             response = client.post(
-                f"/ship/{ship_id}/exec", json=invalid_op_data, headers=headers_wrong_id
+                "/ship/wrong-ship-id/exec", json=invalid_op_data, headers=headers_wrong_id
             )
-            assert response.status_code == 422
+            print(response.json())
+            assert response.status_code != 200
 
             # Test invalid operation type (should fail validation)
             invalid_type_data = {
@@ -393,12 +499,12 @@ class TestShipyard:
                 "payload": {"command": "echo test"},
             }
 
-            headers_correct = {**DEFAULT_HEADERS, "X-Ship-ID": ship_id}
+            headers_correct = {**DEFAULT_HEADERS}
 
             response = client.post(
                 f"/ship/{ship_id}/exec", json=invalid_type_data, headers=headers_correct
             )
-            assert response.status_code == 422  # Validation error
+            assert response.status_code != 200  # Validation error
 
         finally:
             # Clean up

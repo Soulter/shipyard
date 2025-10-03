@@ -111,3 +111,10 @@ class ErrorResponse(BaseModel):
 
 class LogsResponse(BaseModel):
     logs: str
+
+
+class UploadFileResponse(BaseModel):
+    success: bool
+    message: str
+    file_path: Optional[str] = None
+    error: Optional[str] = None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile
 from app.models import (
     CreateShipRequest,
     ShipResponse,
@@ -6,9 +6,11 @@ from app.models import (
     ExecResponse,
     ExtendTTLRequest,
     LogsResponse,
+    UploadFileResponse,
 )
 from app.services.ship_service import ship_service
 from app.auth import verify_token
+from app.config import settings
 
 router = APIRouter()
 
@@ -93,3 +95,65 @@ async def extend_ship_ttl(
         )
 
     return ShipResponse.model_validate(ship)
+
+
+@router.post("/ship/{ship_id}/upload", response_model=UploadFileResponse)
+async def upload_file(
+    ship_id: str,
+    file: UploadFile,
+    file_path: str = Header(..., alias="X-FILE-PATH"),
+    token: str = Depends(verify_token),
+    x_session_id: str = Header(..., alias="X-SESSION-ID"),
+):
+    """Upload file to ship container"""
+    try:
+        # Check file size before reading
+        if file.size and file.size > settings.max_upload_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size ({file.size} bytes) exceeds maximum allowed size ({settings.max_upload_size} bytes)",
+            )
+
+        # Read file content
+        file_content = await file.read()
+
+        # Double-check actual file size after reading
+        if len(file_content) > settings.max_upload_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size ({len(file_content)} bytes) exceeds maximum allowed size ({settings.max_upload_size} bytes)",
+            )
+
+        response = await ship_service.upload_file(
+            ship_id, file_content, file_path, x_session_id
+        )
+
+        if not response.success:
+            error_msg = response.error or "Unknown error"
+            if "size" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=error_msg,
+                )
+            elif "not found" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error_msg
+                )
+            elif "access" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail=error_msg
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
+                )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"File upload failed: {str(e)}",
+        )
