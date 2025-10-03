@@ -82,8 +82,7 @@ try:
     # 直接指定中文字体路径
     chinese_font_paths = [
         '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
-        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc'
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
     ]
     
     # 尝试添加中文字体

@@ -21,7 +21,7 @@ def bay_image(docker_client):
 
     # 构建镜像
     image, build_logs = docker_client.images.build(
-        path=str(project_root), tag="bay:test", rm=True, forcerm=True
+        path=str(project_root), tag="soulter/shipyard-bay:latest", rm=True, forcerm=True
     )
 
     # 打印构建日志

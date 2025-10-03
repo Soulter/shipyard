@@ -20,6 +20,10 @@ RUN apt update && apt install -y --no-install-recommends \
     # lxml 依赖
     libxml2-dev \
     libxslt1-dev \
+    # 字体显示
+    fontconfig \
+    fonts-noto-cjk \
+    fonts-noto-color-emoji \
     # 网络工具
     net-tools \
     && rm -rf /var/lib/apt/lists/* \
