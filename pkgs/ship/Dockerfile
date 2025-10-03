@@ -24,6 +24,8 @@ RUN apt update && apt install -y --no-install-recommends \
     fontconfig \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
     # 网络工具
     net-tools \
     && rm -rf /var/lib/apt/lists/* \
