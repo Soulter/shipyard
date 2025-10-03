@@ -101,7 +101,7 @@ async def extend_ship_ttl(
 async def upload_file(
     ship_id: str,
     file: UploadFile,
-    file_path: str = Header(..., alias="X-FILE-PATH"),
+    file_path: str,
     token: str = Depends(verify_token),
     x_session_id: str = Header(..., alias="X-SESSION-ID"),
 ):

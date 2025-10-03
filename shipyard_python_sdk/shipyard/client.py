@@ -46,7 +46,6 @@ class ShipyardClient:
         if self._session is None or self._session.closed:
             headers = {
                 "Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json",
             }
             self._session = aiohttp.ClientSession(headers=headers)
         return self._session
@@ -188,29 +187,31 @@ class ShipyardClient:
                 )
 
     async def upload_file(
-        self, ship_id: str, file_content: bytes, session_id: str, remote_file_path: str
+        self, ship_id: str, file_path: str, session_id: str, remote_file_path: str
     ) -> Dict[str, Any]:
         """Upload file to ship container"""
         session = await self._get_session()
 
         # Create multipart form data
         form_data = aiohttp.FormData()
-        form_data.add_field(
-            "file", file_content, filename="upload", content_type="application/octet-stream"
-        )
 
-        headers = {
-            "X-SESSION-ID": session_id,
-            "X-FILE-PATH": remote_file_path,
-        }
+        with open(file_path, "rb") as f:
+            form_data.add_field(
+                "file", f, filename="upload", content_type="application/octet-stream"
+            )
+            form_data.add_field("file_path", remote_file_path)
 
-        async with session.post(
-            f"{self.endpoint_url}/ship/{ship_id}/upload", data=form_data, headers=headers
-        ) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                error_text = await response.text()
-                raise Exception(
-                    f"Failed to upload file: {response.status} {error_text}"
-                )
+            headers = {"X-SESSION-ID": session_id}
+
+            async with session.post(
+                f"{self.endpoint_url}/ship/{ship_id}/upload",
+                data=form_data,
+                headers=headers,
+            ) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    error_text = await response.text()
+                    raise Exception(
+                        f"Failed to upload file: {response.status} {error_text}"
+                    )
