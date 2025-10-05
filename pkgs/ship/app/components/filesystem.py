@@ -50,6 +50,8 @@ class CreateFileRequest(BaseModel):
 class ReadFileRequest(BaseModel):
     path: str
     encoding: str = "utf-8"
+    offset: Optional[int] = None  # 起始行号（1-based），None 表示从头开始
+    limit: Optional[int] = None  # 最大读取行数，None 表示读取所有行
 
 
 class WriteFileRequest(BaseModel):
@@ -134,7 +136,15 @@ async def read_file(
             )
 
         async with aiofiles.open(file_path, "r", encoding=request.encoding) as f:
-            content = await f.read()
+            lines = await f.readlines()
+            offset = request.offset if request.offset is not None else 1
+            limit = request.limit if request.limit is not None else len(lines)
+            start_index = max(0, offset - 1) if offset > 0 else 0
+            if start_index >= len(lines):
+                content = ""
+            else:
+                end_index = start_index + limit
+                content = "".join(lines[start_index:end_index])
 
         stat = file_path.stat()
         return FileResponse(

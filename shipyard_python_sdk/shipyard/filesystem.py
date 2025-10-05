@@ -2,7 +2,7 @@
 Shipyard Python SDK - File system component
 """
 
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .client import ShipyardClient
@@ -25,9 +25,30 @@ class FileSystemComponent:
             self._ship_id, "fs/create_file", payload, self._session_id
         )
 
-    async def read_file(self, path: str, encoding: str = "utf-8") -> Dict[str, Any]:
-        """Read file content"""
-        payload = {"path": path, "encoding": encoding}
+    async def read_file(
+        self, 
+        path: str, 
+        encoding: str = "utf-8", 
+        offset: Optional[int] = None, 
+        limit: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Read file content
+        
+        Args:
+            path: File path to read
+            encoding: File encoding (default: utf-8)
+            offset: Starting line number (1-based), None to start from beginning
+            limit: Maximum number of lines to read, None to read all lines
+            
+        Returns:
+            Dictionary containing file content and metadata
+        """
+        payload: Dict[str, Any] = {"path": path, "encoding": encoding}
+        if offset is not None:
+            payload["offset"] = offset
+        if limit is not None:
+            payload["limit"] = limit
+            
         return await self._client._exec_operation(
             self._ship_id, "fs/read_file", payload, self._session_id
         )
