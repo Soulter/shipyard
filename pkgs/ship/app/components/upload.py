@@ -1,4 +1,3 @@
-import os
 import aiofiles
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form
@@ -50,38 +49,34 @@ class UploadResponse(BaseModel):
 async def upload_file(
     file: UploadFile = File(...),
     file_path: str = Form(...),
-    x_session_id: str = Header(..., alias="X-SESSION-ID")
+    x_session_id: str = Header(..., alias="X-SESSION-ID"),
 ):
     """上传文件到session工作目录"""
     try:
         # 解析并验证目标路径
         target_path = resolve_path(x_session_id, file_path)
-        
+
         # 确保父目录存在
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # 读取文件内容并写入目标路径
         content = await file.read()
-        
-        async with aiofiles.open(target_path, 'wb') as f:
+
+        async with aiofiles.open(target_path, "wb") as f:
             await f.write(content)
-        
+
         return UploadResponse(
             success=True,
             message="File uploaded successfully",
             file_path=str(target_path),
-            size=len(content)
+            size=len(content),
         )
-        
+
     except HTTPException:
         # 重新抛出HTTP异常（如路径验证失败）
         raise
     except Exception as e:
-        return UploadResponse(
-            success=False,
-            message="File upload failed",
-            error=str(e)
-        )
+        return UploadResponse(success=False, message="File upload failed", error=str(e))
 
 
 @router.get("/health")

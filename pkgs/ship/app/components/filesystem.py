@@ -61,6 +61,14 @@ class WriteFileRequest(BaseModel):
     encoding: str = "utf-8"
 
 
+class EditFileRequest(BaseModel):
+    path: str
+    old_string: str
+    new_string: str
+    replace_all: bool = False
+    encoding: str = "utf-8"
+
+
 class DeleteFileRequest(BaseModel):
     path: str
 
@@ -182,6 +190,70 @@ async def write_file(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write file: {str(e)}")
+
+
+@router.post("/edit_file")
+async def edit_file(
+    request: EditFileRequest, x_session_id: str = Header(..., alias="X-SESSION-ID")
+):
+    """编辑文件内容 - 替换指定的字符串"""
+    try:
+        file_path = resolve_path(x_session_id, request.path)
+
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=404, detail=f"File not found: {request.path}"
+            )
+        if not file_path.is_file():
+            raise HTTPException(
+                status_code=400, detail=f"Path is not a file: {request.path}"
+            )
+        if request.old_string == request.new_string:
+            raise HTTPException(
+                status_code=400, detail="'old_string' and 'new_string' must differ"
+            )
+
+        async with aiofiles.open(file_path, "r", encoding=request.encoding) as f:
+            content = await f.read()
+
+        # 检查要替换的字符串是否存在
+        count = content.count(request.old_string)
+        if count == 0:
+            raise HTTPException(
+                status_code=400, detail="'old_string' not found in file"
+            )
+
+        # 检查是否需要替换所有出现的字符串
+        if count > 1 and not request.replace_all:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'old_string' appears {count} times in file; set replace_all=true to replace all occurrences",
+            )
+
+        # 执行替换
+        if request.replace_all:
+            updated_content = content.replace(request.old_string, request.new_string)
+            replacements = count
+        else:
+            updated_content = content.replace(request.old_string, request.new_string, 1)
+            replacements = 1
+
+        # 写入更新后的内容
+        async with aiofiles.open(file_path, "w", encoding=request.encoding) as f:
+            await f.write(updated_content)
+
+        stat = file_path.stat()
+        return {
+            "success": True,
+            "message": f"File edited: {request.path}",
+            "path": str(file_path.absolute()),
+            "replacements": replacements,
+            "size": stat.st_size,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to edit file: {str(e)}")
 
 
 @router.post("/delete_file")

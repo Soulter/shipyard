@@ -174,12 +174,7 @@ class ShipyardClient:
         ) as response:
             if response.status == 200:
                 exec_response = await response.json()
-                if exec_response.get("success"):
-                    return exec_response.get("data", {})
-                else:
-                    raise Exception(
-                        f"Operation failed: {exec_response.get('error', 'Unknown error')}"
-                    )
+                return exec_response
             else:
                 error_text = await response.text()
                 raise Exception(
